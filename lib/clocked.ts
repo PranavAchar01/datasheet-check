@@ -19,7 +19,11 @@ export async function clocked<T>(endpoint: string, payload: unknown): Promise<T>
   const body = JSON.stringify(payload);
   let lastError: ClockedError | null = null;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // 429 is the account's concurrency limit: back off and retry (bounded).
+  // 5xx and network failures get one retry. Same key and payload every time.
+  let serverRetries = 1;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(500 * 2 ** (attempt - 1), 4000)));
     try {
       const res = await fetch(`${BASE}/${endpoint}`, {
         method: "POST",
@@ -34,9 +38,11 @@ export async function clocked<T>(endpoint: string, payload: unknown): Promise<T>
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.ok) return data as T;
       lastError = new ClockedError(data.error ?? `Clocked ${endpoint} failed (${res.status})`, res.status);
-      if (res.status < 500) break;
+      if (res.status === 429) continue;
+      if (res.status < 500 || serverRetries-- <= 0) break;
     } catch (err) {
       lastError = new ClockedError(`Clocked ${endpoint} did not answer: ${(err as Error).message}`, 504);
+      if (serverRetries-- <= 0) break;
     }
   }
   throw lastError ?? new ClockedError(`Clocked ${endpoint} failed`, 500);
