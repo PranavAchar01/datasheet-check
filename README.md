@@ -4,6 +4,10 @@ Paste a part's datasheet and a few notes on how you use it on your board. Datash
 
 Built for the Clocked Build Challenge on the [Clocked API](https://clocked.rezolve.ai/docs).
 
+Live app: https://datasheet-check.vercel.app
+
+Demo video (46 s): [docs/demo.mp4](docs/demo.mp4)
+
 ## How it uses Clocked
 
 One request to `/api/check` runs two Clocked endpoints in parallel over the same datasheet text:
